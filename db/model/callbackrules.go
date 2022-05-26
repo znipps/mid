@@ -23,5 +23,6 @@ type HttpProxyConfig struct {
 }
 
 const PROXYTYPE_HTTP = 1
+const INVOKE_HTTP = 2
 const CALLBACKTYPE_COM = 1
 const CALLBACKTYPE_BIZ = 2

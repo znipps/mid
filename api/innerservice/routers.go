@@ -10,5 +10,7 @@ func Routers(e *gin.Engine) {
 	g := e.Group("/inner", middleware.InnerServiceMiddleWare)
 	g.GET("/component-access-token", GetComponentAccessTokenHandler)
 	g.GET("/authorizer-access-token", GetAuthorizerAccessTokenHandler)
+	g.POST("/component-access-token", GetComponentAccessTokenHandler)
+	g.POST("/authorizer-access-token", GetAuthorizerAccessTokenHandler)
 	g.GET("/ticket", GetTicketHandler)
 }

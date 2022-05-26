@@ -2,9 +2,12 @@ package wx
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/WeixinCloud/wxcloudrun-wxcomponent/comm/log"
@@ -26,7 +29,59 @@ func getAccessTokenWithRetry(appid string, tokenType int) (string, error) {
 		}
 		break
 	}
+
+	log.Infof("token {%s}, appid {%s}, tokenType {%s}", token, appid, tokenType)
+
+	// notifyCallback(token, appid, tokenType)
+
 	return token, err
+}
+
+func notifyCallback(token, appid string, tokenType int) {
+	rules, err := dao.GetWxCallBackRulesWithCache("token-callback", "", "")
+
+	if err != nil {
+		log.Error(err)
+	}
+
+	if rules == nil {
+		log.Infof("Not fount auth callback!")
+	}
+
+	//TODO invoke goroutine?
+	for _, rule := range rules {
+		if rule.Open != 0 && rule.Type == model.INVOKE_HTTP {
+			func() {
+				var proxyConfig model.HttpProxyConfig
+				if err = json.Unmarshal([]byte(rule.Info), &proxyConfig); err != nil {
+					log.Errorf("Unmarshal err, %v", err)
+					return
+				}
+
+				resp, err := http.Get(proxyConfig.Path)
+
+				if err != nil {
+					log.Errorf("Invoke token call back error", err)
+					return
+				}
+
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					log.Errorf("Non-OK HTTP status: %d", resp.StatusCode)
+					return
+				}
+
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Errorf("Read body error")
+					return
+				}
+
+				log.Infof("Get response : %s", body)
+			}()
+		}
+	}
 }
 
 func getAccessToken(appid string, tokenType int) (string, error) {

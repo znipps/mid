@@ -98,6 +98,32 @@ func GetWxCallBackRuleWithCache(infoType string, msgType string, event string) (
 	}
 }
 
+// GetWxCallBackRulesWithCache 通过消息类型获取多个转发规则 有缓存
+func GetWxCallBackRulesWithCache(infoType string, msgType string, event string) ([]*model.WxCallbackRule, error) {
+	cacheCli := db.GetCache()
+	key := genCallBackRuleKey(infoType, msgType, event)
+	value, found := cacheCli.Get(key)
+	if found {
+		log.Infof("hit cache key:", key)
+		if value == nil {
+			return nil, nil
+		}
+		return value.([]*model.WxCallbackRule), nil
+	} else {
+		result, err := getWxCallBackRules(infoType)
+		if err == gorm.ErrRecordNotFound {
+			log.Infof("empty record")
+			cacheCli.Set(key, nil, cache.DefaultExpiration)
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		cacheCli.Set(key, result, cache.DefaultExpiration)
+		return result, nil
+	}
+}
+
 // GetWxCallBackRuleById 通过id获取转发规则
 func GetWxCallBackRuleById(id int32) (*model.WxCallbackRule, error) {
 	var record *model.WxCallbackRule
@@ -114,6 +140,15 @@ func getWxCallBackRule(infoType string, msgType string, event string) (*model.Wx
 	result := cli.Table(callbackRuleTableName).
 		Where("infotype = ? and msgtype = ? and event = ?", infoType, msgType, event).
 		Take(&record)
+	return record, result.Error
+}
+
+func getWxCallBackRules(infoType string) ([]*model.WxCallbackRule, error) {
+	var record []*model.WxCallbackRule
+	cli := db.Get()
+	result := cli.Table(callbackRuleTableName).
+		Where("infotype = ? ", infoType).
+		Find(&record)
 	return record, result.Error
 }
 
