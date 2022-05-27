@@ -61,6 +61,9 @@ func componentHandler(c *gin.Context) {
 		return
 	}
 
+	// reg token
+	triggerToken(json.InfoType, c)
+
 	// 转发到用户配置的地址
 	var proxyOpen bool
 	proxyOpen, err = proxyCallbackMsg(json.InfoType, "", "", string(body), c)

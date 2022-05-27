@@ -110,7 +110,7 @@ func GetWxCallBackRulesWithCache(infoType string, msgType string, event string) 
 		}
 		return value.([]*model.WxCallbackRule), nil
 	} else {
-		result, err := getWxCallBackRules(infoType)
+		result, err := getWxCallBackRules(infoType, msgType)
 		if err == gorm.ErrRecordNotFound {
 			log.Infof("empty record")
 			cacheCli.Set(key, nil, cache.DefaultExpiration)
@@ -143,11 +143,11 @@ func getWxCallBackRule(infoType string, msgType string, event string) (*model.Wx
 	return record, result.Error
 }
 
-func getWxCallBackRules(infoType string) ([]*model.WxCallbackRule, error) {
+func getWxCallBackRules(infoType string, msgType string) ([]*model.WxCallbackRule, error) {
 	var record []*model.WxCallbackRule
 	cli := db.Get()
 	result := cli.Table(callbackRuleTableName).
-		Where("infotype = ? ", infoType).
+		Where("infotype = ? and msgtype = ? ", infoType, msgType).
 		Find(&record)
 	return record, result.Error
 }

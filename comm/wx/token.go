@@ -16,6 +16,22 @@ import (
 	"github.com/WeixinCloud/wxcloudrun-wxcomponent/db/model"
 )
 
+type DataForm struct {
+	RequestType string   `json:"type"`
+	Request     *Request `json:"request"`
+	AccesToken  string   `json:"token"`
+}
+
+type Request struct {
+	Data *NotifyToken `json:"data"`
+}
+
+type NotifyToken struct {
+	Appid     string `json:"appid"`
+	Token     string `json:"token"`
+	TokenType int    `json:"token_type"`
+}
+
 func getAccessTokenWithRetry(appid string, tokenType int) (string, error) {
 	var token string
 	var err error
@@ -30,22 +46,38 @@ func getAccessTokenWithRetry(appid string, tokenType int) (string, error) {
 		break
 	}
 
-	log.Infof("token {%s}, appid {%s}, tokenType {%s}", token, appid, tokenType)
+	log.Infof("token {%s}, appid {%s}, tokenType {%d}", token, appid, tokenType)
 
-	// notifyCallback(token, appid, tokenType)
+	notifyCallback(token, appid, tokenType)
 
 	return token, err
 }
 
+func makeTokenNotifyDataForm(token, appid string, tokenType int) DataForm {
+	return DataForm{
+		RequestType: "saveToken",
+		Request: &Request{
+			Data: &NotifyToken{
+				Appid:     appid,
+				Token:     token,
+				TokenType: tokenType,
+			},
+		},
+	}
+}
+
 func notifyCallback(token, appid string, tokenType int) {
-	rules, err := dao.GetWxCallBackRulesWithCache("token-callback", "", "")
+	searchType := "component"
+	if tokenType == model.WXTOKENTYPE_AUTH {
+		searchType = "authorizer"
+	} else if tokenType == model.WXTOKENTYPE_OWN {
+		searchType = "component"
+	}
+
+	rules, err := dao.GetWxCallBackRulesWithCache("token-callback", searchType, "")
 
 	if err != nil {
 		log.Error(err)
-	}
-
-	if rules == nil {
-		log.Infof("Not fount auth callback!")
 	}
 
 	//TODO invoke goroutine?
@@ -58,7 +90,11 @@ func notifyCallback(token, appid string, tokenType int) {
 					return
 				}
 
-				resp, err := http.Get(proxyConfig.Path)
+				notifyToken := makeTokenNotifyDataForm(token, appid, tokenType)
+
+				jsonBytes, err := json.Marshal(&notifyToken)
+
+				resp, err := http.Post(proxyConfig.Path, "application/json", bytes.NewBuffer(jsonBytes))
 
 				if err != nil {
 					log.Errorf("Invoke token call back error", err)
