@@ -39,7 +39,6 @@ func JWTMiddleWare(c *gin.Context) {
 		username := c.Query("username")
 		password := c.Query("password")
 		if username == "" || password == "" {
-			log.Error(err.Error())
 			c.JSON(http.StatusOK, errno.ErrNotAuthorized)
 			c.Abort()
 			return
