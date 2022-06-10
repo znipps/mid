@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/WeixinCloud/wxcloudrun-wxcomponent/db/dao"
 	"net/http"
 	"time"
 
@@ -11,6 +12,18 @@ import (
 
 	"github.com/WeixinCloud/wxcloudrun-wxcomponent/comm/utils"
 )
+
+func checkAuth(username, password string) (int32, error) {
+	record, err := dao.GetUserRecord(username, password)
+	if err != nil {
+		log.Error(err)
+		return 0, err
+	}
+	if len(record) > 0 {
+		return record[0].ID, nil
+	}
+	return 0, err
+}
 
 // JWTMiddleWare 中间件
 func JWTMiddleWare(c *gin.Context) {
@@ -23,7 +36,24 @@ func JWTMiddleWare(c *gin.Context) {
 	var claims *utils.Claims
 
 	if token == "" {
-		code = errno.ErrNotAuthorized
+		username := c.Query("username")
+		password := c.Query("password")
+		if username == "" || password == "" {
+			log.Error(err.Error())
+			c.JSON(http.StatusOK, errno.ErrNotAuthorized)
+			c.Abort()
+			return
+		}
+
+		_, err := checkAuth(username, password)
+
+		if err != nil {
+			log.Error(err.Error())
+			code = errno.ErrNotAuthorized
+		} else {
+			code = errno.OK
+		}
+
 	} else {
 		claims, err = utils.ParseToken(token)
 		if err != nil {
@@ -39,9 +69,10 @@ func JWTMiddleWare(c *gin.Context) {
 		return
 	}
 
-	log.Debugf("id:%s UserName:%s", claims.ID, claims.UserName)
-
-	c.Set("jwt", claims)
+	if token != "" {
+		log.Debugf("id:%s UserName:%s", claims.ID, claims.UserName)
+		c.Set("jwt", claims)
+	}
 
 	c.Next()
 }
