@@ -46,6 +46,9 @@ func bizHandler(c *gin.Context) {
 		return
 	}
 
+	// reg token
+	notify("nofity", json.Event, c.Param("appid"), string(body), c)
+
 	// 转发到用户配置的地址
 	proxyOpen, err := proxyCallbackMsg("", json.MsgType, json.Event, string(body), c)
 	if err != nil {

@@ -69,6 +69,50 @@ func proxyCallbackMsg(infoType string, msgType string, event string, body string
 	return false, nil
 }
 
+func notify(infoType string, msgType string, event string, body string, c *gin.Context) {
+	rules, err := dao.GetWxCallBackRulesWithCache(infoType, msgType, event)
+
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	//TODO invoke goroutine?
+	for _, rule := range rules {
+		if rule.Open != 0 && rule.Type == model.INVOKE_HTTP {
+			func() {
+				var proxyConfig model.HttpProxyConfig
+				if err = json.Unmarshal([]byte(rule.Info), &proxyConfig); err != nil {
+					log.Errorf("Unmarshal err, %v", err)
+					return
+				}
+
+				resp, err := http.Post(proxyConfig.Path, "application/json", bytes.NewBufferString(body))
+
+				if err != nil {
+					log.Errorf("Invoke token call back error", err)
+					return
+				}
+
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					log.Errorf("Non-OK HTTP status: %d", resp.StatusCode)
+					return
+				}
+
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Errorf("Read body error")
+					return
+				}
+
+				log.Infof("Get response : %s", body)
+			}()
+		}
+	}
+}
+
 func triggerToken(infoType string, c *gin.Context) {
 	rule, err := dao.GetWxCallBackRuleWithCache("trigger", "token-trigger", infoType)
 

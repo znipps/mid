@@ -78,6 +78,7 @@ func notifyCallback(token, appid string, tokenType int) {
 
 	if err != nil {
 		log.Error(err)
+		return
 	}
 
 	//TODO invoke goroutine?
