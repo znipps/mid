@@ -80,10 +80,40 @@ func proxyCallbackMsg(infoType string, msgType string, event string, body string
 		path := strings.Replace(proxyConfig.Path, "$APPID$", c.Param("appid"), -1)
 		log.Infof("proxy: %v, real path %s", rule, path)
 		var target *url.URL
-		if target, err = url.Parse(fmt.Sprintf("http://127.0.0.1:%d%s", proxyConfig.Port, path)); err != nil {
-			log.Errorf("url Parse error: %v", err)
-			return false, err
+		if proxyConfig.Type == 1 {
+			if target, err = url.Parse(path); err != nil {
+				log.Errorf("url Parse error: %v", err)
+				return false, err
+			}
+
+			if proxyConfig.Auth {
+				parameter := makeSignature()
+				base, err := url.Parse(proxyConfig.Path)
+				if err != nil {
+					return false, err
+				}
+				// Query params
+				params := url.Values{}
+				params.Add("nonce", parameter.Nonce)
+				params.Add("timestamp", parameter.Timestamp)
+				params.Add("signature", parameter.Signature)
+				base.RawQuery = params.Encode()
+
+				fmt.Printf("Encoded URL is %q\n", base.String())
+
+				if target, err = url.Parse(base.String()); err != nil {
+					log.Errorf("url Parse error: %v", err)
+					return false, err
+				}
+			}
+
+		} else {
+			if target, err = url.Parse(fmt.Sprintf("http://127.0.0.1:%d%s", proxyConfig.Port, path)); err != nil {
+				log.Errorf("url Parse error: %v", err)
+				return false, err
+			}
 		}
+
 		proxy := newReverseProxy(target)
 		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(body)))
 		proxy.ServeHTTP(c.Writer, c.Request)

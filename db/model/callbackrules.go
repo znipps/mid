@@ -20,6 +20,8 @@ type WxCallbackRule struct {
 type HttpProxyConfig struct {
 	Port int    `json:"port"`
 	Path string `json:"path"`
+	Type int    `json:"type"`
+	Auth bool   `json:"auth"`
 }
 
 const PROXYTYPE_HTTP = 1
