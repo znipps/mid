@@ -22,8 +22,20 @@ type wxCallbackComponentRecord struct {
 }
 
 func componentHandler(c *gin.Context) {
-	// 记录到数据库
+
+	_, ok := c.GetQuery("signature")
+
 	body, _ := ioutil.ReadAll(c.Request.Body)
+
+	log.Info("recive body: " + string(body))
+
+	if ok {
+		c.String(http.StatusOK, "success")
+		return
+	}
+
+	// 记录到数据库
+	body, _ = ioutil.ReadAll(c.Request.Body)
 	var json wxCallbackComponentRecord
 	if err := binding.JSON.BindBody(body, &json); err != nil {
 		c.JSON(http.StatusOK, errno.ErrInvalidParam.WithData(err.Error()))
@@ -75,6 +87,16 @@ func componentHandler(c *gin.Context) {
 	if !proxyOpen {
 		c.String(http.StatusOK, "success")
 	}
+}
+
+func checkSignature(c *gin.Context) bool {
+	_, ok := c.GetQuery("signature")
+
+	if ok {
+		c.JSON(http.StatusOK, "success")
+		return true
+	}
+	return false
 }
 
 type ticketRecord struct {

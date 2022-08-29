@@ -22,6 +22,14 @@ type wxCallbackBizRecord struct {
 }
 
 func bizHandler(c *gin.Context) {
+	_, ok := c.GetQuery("signature")
+
+	if ok {
+		c.String(http.StatusOK, "success")
+
+		return
+	}
+
 	// 记录到数据库
 	body, _ := ioutil.ReadAll(c.Request.Body)
 	var json wxCallbackBizRecord
