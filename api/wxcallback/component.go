@@ -29,6 +29,8 @@ type wxCallbackComponentRecord struct {
 func componentHandler(c *gin.Context) {
 
 	body, _ := ioutil.ReadAll(c.Request.Body)
+	log.Info("recive body: " + string(body))
+
 	jsonBody, isXml := checkSignature(c, body)
 
 	if isXml {
