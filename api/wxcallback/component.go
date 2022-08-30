@@ -1,8 +1,13 @@
 package wxcallback
 
 import (
+	"encoding/base64"
+	"encoding/xml"
+	"github.com/WeixinCloud/wxcloudrun-wxcomponent/comm/encrypt"
+	xj "github.com/WeixinCloud/wxcloudrun-wxcomponent/comm/goxml2json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/WeixinCloud/wxcloudrun-wxcomponent/comm/errno"
@@ -23,19 +28,14 @@ type wxCallbackComponentRecord struct {
 
 func componentHandler(c *gin.Context) {
 
-	_, ok := c.GetQuery("signature")
-
 	body, _ := ioutil.ReadAll(c.Request.Body)
+	jsonBody, isXml := checkSignature(c, body)
 
-	log.Info("recive body: " + string(body))
-
-	if ok {
-		c.String(http.StatusOK, "success")
-		return
+	if isXml {
+		body = jsonBody
 	}
 
 	// 记录到数据库
-	body, _ = ioutil.ReadAll(c.Request.Body)
 	var json wxCallbackComponentRecord
 	if err := binding.JSON.BindBody(body, &json); err != nil {
 		c.JSON(http.StatusOK, errno.ErrInvalidParam.WithData(err.Error()))
@@ -89,14 +89,62 @@ func componentHandler(c *gin.Context) {
 	}
 }
 
-func checkSignature(c *gin.Context) bool {
+type wxCallbackXmlComponentRecord struct {
+	XMLName xml.Name `xml:"xml"`
+	AppId   string   `xml:"AppId"`
+	Encrypt string   `xml:"Encrypt"`
+}
+
+type Message struct {
+	XMLName                      xml.Name `xml:"xml"`
+	AppId                        string   `xml:"AppId"`
+	CreateTime                   int64    `xml:"CreateTime"`
+	InfoType                     string   `xml:"InfoType"`
+	AuthorizerAppid              string   `xml:"AuthorizerAppid"`
+	AuthorizationCode            string   `xml:"AuthorizationCode"`
+	AuthorizationCodeExpiredTime int64    `xml:"AuthorizationCodeExpiredTime"`
+	PreAuthCode                  string   `xml:"PreAuthCode"`
+}
+
+func checkSignature(c *gin.Context, body []byte) ([]byte, bool) {
 	_, ok := c.GetQuery("signature")
 
-	if ok {
-		c.JSON(http.StatusOK, "success")
-		return true
+	if !ok {
+		return nil, false
 	}
-	return false
+
+	var data wxCallbackXmlComponentRecord
+	xml.Unmarshal([]byte(body), &data)
+
+	keyStr := "11111"
+	key, err := base64.StdEncoding.DecodeString(keyStr)
+	if err != nil {
+		log.Errorf("decode key error", err)
+	}
+
+	bodyDec, err := base64.StdEncoding.DecodeString(data.Encrypt)
+	if err != nil {
+		log.Errorf("decode body error", err)
+	}
+
+	msg, err := encrypt.AesDecrypt(bodyDec, []byte(key))
+	if err != nil {
+		log.Errorf("aes decrypt body error", err)
+	}
+
+	decMes := string(msg)
+	start := strings.Index(decMes, "<xml>")
+	end := strings.Index(decMes, "</xml>") + 6
+
+	var message Message
+	xml.Unmarshal([]byte(decMes[start:end]), &message)
+
+	json, err := xj.ConvertRemoveRoot(strings.NewReader(decMes[start:end]))
+	if err != nil {
+		log.Errorf("error covert to json", err)
+	}
+
+	return []byte(json.String()), true
 }
 
 type ticketRecord struct {

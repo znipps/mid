@@ -9,6 +9,7 @@ require (
 	github.com/json-iterator/go v1.1.10
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rs/zerolog v1.26.0
+	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gorm.io/driver/mysql v1.2.0
 	gorm.io/driver/postgres v1.2.0
